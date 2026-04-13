@@ -203,7 +203,7 @@
 <body>
 <header>
   <h1>재고 현황</h1>
-  <div class="ts">마지막 업데이트: 2026-04-14 06:56:18</div>
+  <div class="ts">마지막 업데이트: 2026-04-14 07:03:20</div>
 </header>
 <nav class="top-tabs">
   <button class="tab-btn active" data-tab="stock">재고</button>
@@ -222,10 +222,10 @@
       <input type="search" class="search-box"
              placeholder="품목명 부분검색…" autocomplete="off">
       <div class="filter-row">
-        <select class="dd name-dd"><option value="">전체</option></select>
+        <select class="dd name-dd"><option value="">전체</option><option value="전통앤드캡">전통앤드캡</option></select>
         <select class="dd color-dd"><option value="">전체</option><option value="검정매트">검정매트</option><option value="백색">백색</option></select>
       </div>
-      <div class="empty">데이터 없음</div>
+      <table><thead><tr><th>품목</th><th>색상</th><th>재고</th></tr></thead><tbody><tr data-name="전통앤드캡" data-color="검정매트"><td>전통앤드캡</td><td>검정매트</td><td class='num'>3</td></tr></tbody></table>
       <div class="no-result">검색 결과 없음</div>
     </div>
 
@@ -244,10 +244,10 @@
       <input type="search" class="search-box"
              placeholder="품목명 부분검색…" autocomplete="off">
       <div class="filter-row">
-        <select class="dd name-dd"><option value="">전체</option></select>
+        <select class="dd name-dd"><option value="">전체</option><option value="전통앤드캡">전통앤드캡</option></select>
         <select class="dd color-dd"><option value="">전체</option><option value="검정매트">검정매트</option><option value="백색">백색</option></select>
       </div>
-      <div class="empty">데이터 없음</div>
+      <table><thead><tr><th>품목</th><th>색상</th><th>재고</th></tr></thead><tbody><tr data-name="전통앤드캡" data-color="검정매트"><td>전통앤드캡</td><td>검정매트</td><td class='num' style='color:#dc2626;font-weight:600;'>-3</td></tr></tbody></table>
       <div class="no-result">검색 결과 없음</div>
     </div>
 
@@ -263,7 +263,7 @@
   <section id="po">
     <input type="search" class="search-box" id="po-search"
            placeholder="업체 / 품목 / 색상 / 메모 검색…" autocomplete="off">
-    <div id="po-list"><div class="empty">발주서 없음</div></div>
+    <div id="po-list"><div class="po-card"><div class="po-head"><span class="po-customer">(업체 없음)</span><span class="po-date">2026-04-14</span></div><div class="po-line shipped"><span>전통앤드캡 · 검정매트</span><span>3개<span class="badge">완료</span></span></div></div></div>
     <div class="no-result" id="po-no-result">검색 결과 없음</div>
   </section>
 </main>
