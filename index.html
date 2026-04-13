@@ -49,6 +49,29 @@
   main { padding: 16px; max-width: 960px; margin: 0 auto; }
   section { display: none; }
   section.active { display: block; }
+  .search-box {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    background: white;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .search-box:focus { outline: none; border-color: #60a5fa; }
+  .stock-group { margin-bottom: 4px; }
+  .stock-group.hidden { display: none; }
+  .no-result {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8;
+    background: white;
+    border-radius: 8px;
+    display: none;
+  }
+  .no-result.visible { display: block; }
   h2 {
     font-size: 1rem;
     margin: 20px 0 8px;
@@ -57,6 +80,7 @@
     padding-left: 8px;
   }
   h2:first-child { margin-top: 0; }
+  .stock-group:first-child h2 { margin-top: 0; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -130,7 +154,7 @@
 <body>
 <header>
   <h1>재고 현황</h1>
-  <div class="ts">마지막 업데이트: 2026-04-13 19:53:22</div>
+  <div class="ts">마지막 업데이트: 2026-04-13 19:53:50</div>
 </header>
 <nav>
   <button class="tab-btn active" data-tab="stock">재고</button>
@@ -138,15 +162,19 @@
 </nav>
 <main>
   <section id="stock" class="active">
-    <h2>완제품</h2>
-    <table><thead><tr><th>품목</th><th>색상</th><th>재고</th></tr></thead><tbody><tr><td>전통앤드캡</td><td>검정매트</td><td class='num'>0</td></tr></tbody></table>
-    <h2>반제품</h2>
-    <div class="empty">데이터 없음</div>
-    <h2>코일</h2>
-    <div class="empty">데이터 없음</div>
+    <input type="search" class="search-box" id="stock-search"
+           placeholder="품목 / 색상 / 코일번호 검색…" autocomplete="off">
+    <div class="stock-group"><h2>완제품</h2><table><thead><tr><th>품목</th><th>색상</th><th>재고</th></tr></thead><tbody><tr><td>전통앤드캡</td><td>검정매트</td><td class='num'>1</td></tr></tbody></table></div>
+    <div class="stock-group"><h2>반제품</h2><div class="empty">데이터 없음</div></div>
+    <div class="stock-group"><h2>공정품</h2><table><thead><tr><th>품목</th><th>색상</th><th>재고</th></tr></thead><tbody><tr><td>전통앤드캡</td><td>검정매트</td><td class='num' style='color:#dc2626;font-weight:600;'>-1</td></tr></tbody></table></div>
+    <div class="stock-group"><h2>코일</h2><div class="empty">데이터 없음</div></div>
+    <div class="no-result" id="stock-no-result">검색 결과 없음</div>
   </section>
   <section id="po">
-    <div class="empty">발주서 없음</div>
+    <input type="search" class="search-box" id="po-search"
+           placeholder="업체 / 품목 / 색상 / 메모 검색…" autocomplete="off">
+    <div id="po-list"><div class="empty">발주서 없음</div></div>
+    <div class="no-result" id="po-no-result">검색 결과 없음</div>
   </section>
 </main>
 <script>
@@ -161,6 +189,39 @@
       });
     });
   });
+
+  function filterStock() {
+    var q = document.getElementById('stock-search').value.trim().toLowerCase();
+    var anyVisible = false;
+    document.querySelectorAll('#stock .stock-group').forEach(function(group) {
+      var rows = group.querySelectorAll('tbody tr');
+      var groupVisible = false;
+      rows.forEach(function(tr) {
+        var match = !q || tr.textContent.toLowerCase().indexOf(q) >= 0;
+        tr.style.display = match ? '' : 'none';
+        if (match) groupVisible = true;
+      });
+      group.classList.toggle('hidden', rows.length > 0 && !groupVisible);
+      if (groupVisible) anyVisible = true;
+    });
+    document.getElementById('stock-no-result')
+      .classList.toggle('visible', !!q && !anyVisible);
+  }
+
+  function filterPo() {
+    var q = document.getElementById('po-search').value.trim().toLowerCase();
+    var anyVisible = false;
+    document.querySelectorAll('#po-list .po-card').forEach(function(card) {
+      var match = !q || card.textContent.toLowerCase().indexOf(q) >= 0;
+      card.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+    document.getElementById('po-no-result')
+      .classList.toggle('visible', !!q && !anyVisible);
+  }
+
+  document.getElementById('stock-search').addEventListener('input', filterStock);
+  document.getElementById('po-search').addEventListener('input', filterPo);
 </script>
 </body>
 </html>
