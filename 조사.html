@@ -127,6 +127,57 @@
   .search-row input:not(:placeholder-shown) + .btn-clear-search {
     display: flex;
   }
+  .dd-row {
+    display: flex;
+    gap: 6px;
+    padding: 6px 12px 2px;
+    background: white;
+  }
+  .dd-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 28px 9px 12px;
+    font-size: 0.9rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path fill='%2364748b' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 10px 6px;
+  }
+  .dd-row select:focus {
+    border-color: var(--primary);
+    background-color: white;
+  }
+  .add-item-row {
+    display: none;
+    gap: 6px;
+    padding: 6px 12px 10px;
+    background: white;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+  }
+  .add-item-row.show { display: flex; }
+  .add-item-row input {
+    flex: 1 1 40%;
+    min-width: 100px;
+    font-size: 0.95rem;
+  }
+  .add-item-row button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .btn-new-confirm { background: var(--primary); color: white; }
+  .btn-new-cancel { background: var(--border); color: var(--text); }
+
   .filters {
     display: flex;
     gap: 6px;
@@ -150,6 +201,16 @@
   .filters button.active {
     background: var(--primary);
     color: white;
+  }
+  .filters .btn-add-item {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #22c55e;
+  }
+  .filters .btn-add-item.active {
+    background: #22c55e;
+    color: white;
+    border-color: #22c55e;
   }
   .filters .read-toggle {
     background: #fef3c7;
@@ -413,14 +474,14 @@
 <div class="topbar">
   <div class="title-row">
     <h1 id="page-title">재고조사</h1>
-    <div class="meta">스냅샷 2026-04-15 19:53 · <span>20260415_195322</span></div>
+    <div class="meta" id="snapshot-meta">스냅샷 로딩중…</div>
   </div>
   <div class="progress">
     <div class="counts">
       <span class="done">완료 <strong id="count-done">0</strong></span>
       <span class="inprog">진행중 <strong id="count-inprog">0</strong></span>
       <span class="unchecked">미체크 <strong id="count-unchecked">0</strong></span>
-      <span class="total">전체 173</span>
+      <span class="total">전체 <strong id="count-total">0</strong></span>
     </div>
     <div class="bar"><div class="bar-fill" id="bar-fill" style="width:0"></div></div>
   </div>
@@ -430,12 +491,23 @@
       <button class="btn-clear-search" id="btn-clear-search" type="button">✕</button>
     </div>
   </div>
+  <div class="dd-row">
+    <select id="filter-name"><option value="">품목 전체</option></select>
+    <select id="filter-color"><option value="">색상 전체</option></select>
+  </div>
+  <div class="add-item-row" id="add-item-row">
+    <input type="text" id="new-name" placeholder="새 품목명" autocomplete="off" autocapitalize="off">
+    <input type="text" id="new-color" placeholder="색상" autocomplete="off" autocapitalize="off">
+    <button class="btn-new-confirm" id="btn-new-confirm" type="button">추가</button>
+    <button class="btn-new-cancel" id="btn-new-cancel" type="button">취소</button>
+  </div>
   <div class="filters">
     <button data-filter="all" class="active">전체</button>
     <button data-filter="unchecked">미체크</button>
     <button data-filter="inprogress">진행중</button>
     <button data-filter="done-mismatch">불일치</button>
     <button data-filter="done-match">일치</button>
+    <button id="btn-add-item" class="btn-add-item" type="button">➕ 새 품목</button>
     <button id="btn-read-mode" class="read-toggle">📖 읽기</button>
   </div>
 </div>
@@ -465,12 +537,30 @@
   var RAW = JSON.parse(document.getElementById('data-json').textContent);
   var SNAPSHOT_ID = RAW.snapshot_id;
   var STORAGE_KEY = '재고조사_' + SNAPSHOT_ID;
-  var ITEMS = RAW.items;
+  var CUSTOM_KEY = '재고조사_custom_' + SNAPSHOT_ID;
+  var ITEMS = RAW.items.slice();
+
+  // 사용자가 추가한 품목 로드 후 ITEMS 뒤에 붙임
+  var customItems = [];
+  try {
+    var rawC = localStorage.getItem(CUSTOM_KEY);
+    if (rawC) customItems = JSON.parse(rawC) || [];
+  } catch (e) { customItems = []; }
+  for (var ic = 0; ic < customItems.length; ic++) {
+    ITEMS.push(customItems[ic]);
+  }
 
   // state[idx] = { entries: [...], done: bool }
   var state = {};
   var currentFilter = 'all';
   var searchQuery = '';
+  var filterName = '';
+  var filterColor = '';
+
+  function saveCustoms() {
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customItems)); }
+    catch (e) { toast('커스텀 품목 저장 실패'); }
+  }
 
   function loadState() {
     try {
@@ -661,13 +751,87 @@
       case 'done-match':    ok = rs === 'done-match'; break;
       default:              ok = true;
     }
-    if (ok && searchQuery) {
+    if (ok && (searchQuery || filterName || filterColor)) {
       var idx = parseInt(row.getAttribute('data-idx'), 10);
       var item = ITEMS[idx];
-      var hay = (item.name + ' ' + item.color).toLowerCase();
-      ok = hay.indexOf(searchQuery) >= 0;
+      if (searchQuery) {
+        var hay = (item.name + ' ' + item.color).toLowerCase();
+        if (hay.indexOf(searchQuery) < 0) ok = false;
+      }
+      if (ok && filterName && item.name !== filterName) ok = false;
+      if (ok && filterColor && item.color !== filterColor) ok = false;
     }
     row.style.display = ok ? '' : 'none';
+  }
+
+  function populateDropdowns() {
+    var names = {}, colors = {};
+    for (var i = 0; i < ITEMS.length; i++) {
+      names[ITEMS[i].name] = true;
+      colors[ITEMS[i].color] = true;
+    }
+    var nameArr = Object.keys(names).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
+    var colorArr = Object.keys(colors).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
+    var ndd = document.getElementById('filter-name');
+    var cdd = document.getElementById('filter-color');
+    var prevN = ndd.value;
+    var prevC = cdd.value;
+    ndd.innerHTML = '<option value="">품목 전체 (' + nameArr.length + ')</option>';
+    for (var j = 0; j < nameArr.length; j++) {
+      var o = document.createElement('option');
+      o.value = nameArr[j];
+      o.textContent = nameArr[j];
+      ndd.appendChild(o);
+    }
+    cdd.innerHTML = '<option value="">색상 전체 (' + colorArr.length + ')</option>';
+    for (var k = 0; k < colorArr.length; k++) {
+      var oc = document.createElement('option');
+      oc.value = colorArr[k];
+      oc.textContent = colorArr[k];
+      cdd.appendChild(oc);
+    }
+    ndd.value = prevN;
+    cdd.value = prevC;
+  }
+
+  function toggleAddItemForm() {
+    var form = document.getElementById('add-item-row');
+    var btn = document.getElementById('btn-add-item');
+    var showing = form.classList.toggle('show');
+    btn.classList.toggle('active', showing);
+    if (showing) {
+      document.getElementById('new-name').focus();
+    } else {
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-color').value = '';
+    }
+  }
+
+  function confirmAddItem() {
+    var nameI = document.getElementById('new-name');
+    var colorI = document.getElementById('new-color');
+    var name = (nameI.value || '').trim();
+    var color = (colorI.value || '').trim();
+    if (!name || !color) { toast('품목명과 색상을 모두 입력하세요'); return; }
+    for (var i = 0; i < ITEMS.length; i++) {
+      if (ITEMS[i].name === name && ITEMS[i].color === color) {
+        toast('이미 있는 품목입니다'); return;
+      }
+    }
+    var newIt = { name: name, color: color, system: 0, custom: true };
+    customItems.push(newIt);
+    ITEMS.push(newIt);
+    saveCustoms();
+    populateDropdowns();
+    var idx = ITEMS.length - 1;
+    var row = renderRow(idx);
+    applyFilterOne(row);
+    document.getElementById('list').appendChild(row);
+    updateProgress();
+    nameI.value = '';
+    colorI.value = '';
+    nameI.focus();
+    toast('추가됨: ' + name + ' · ' + color);
   }
 
   function applyFilterAll() {
@@ -686,6 +850,8 @@
     document.getElementById('count-done').textContent = done;
     document.getElementById('count-inprog').textContent = inprog;
     document.getElementById('count-unchecked').textContent = unchecked;
+    var totalEl = document.getElementById('count-total');
+    if (totalEl) totalEl.textContent = ITEMS.length;
     var pct = ITEMS.length ? (done / ITEMS.length * 100) : 0;
     document.getElementById('bar-fill').style.width = pct.toFixed(1) + '%';
   }
@@ -848,22 +1014,37 @@
               }
               state = {};
               var restored = 0;
+              var addedCustoms = 0;
               (parsed.results || []).forEach(function(r) {
+                var found = -1;
                 for (var i = 0; i < ITEMS.length; i++) {
                   if (ITEMS[i].name === r.name && ITEMS[i].color === r.color) {
-                    state[i] = {
-                      entries: (r.entries || []).slice(),
-                      done: !!(r.status && r.status.indexOf('done') === 0)
-                    };
-                    restored++;
+                    found = i;
                     break;
                   }
                 }
+                if (found === -1) {
+                  // 백업에만 있고 현재 목록엔 없는 품목 = 이전에 추가한 커스텀 품목
+                  var newIt = { name: r.name, color: r.color, system: r.system || 0, custom: true };
+                  customItems.push(newIt);
+                  ITEMS.push(newIt);
+                  found = ITEMS.length - 1;
+                  addedCustoms++;
+                }
+                state[found] = {
+                  entries: (r.entries || []).slice(),
+                  done: !!(r.status && r.status.indexOf('done') === 0)
+                };
+                restored++;
               });
+              if (addedCustoms) saveCustoms();
               saveState();
+              populateDropdowns();
               renderAll();
               updateProgress();
-              toast('복원 완료: ' + restored + '개');
+              var msg = '복원 완료: ' + restored + '개';
+              if (addedCustoms) msg += ' (커스텀 ' + addedCustoms + '개 추가)';
+              toast(msg);
               return true;
             } catch (e) {
               toast('JSON 파싱 실패: ' + e.message);
@@ -884,8 +1065,8 @@
     toast._tid = setTimeout(function() { t.classList.remove('show'); }, 2400);
   }
 
-  // filter buttons
-  var filterBtns = document.querySelectorAll('.filters button');
+  // filter buttons (data-filter 속성 있는 것만)
+  var filterBtns = document.querySelectorAll('.filters button[data-filter]');
   for (var i = 0; i < filterBtns.length; i++) {
     (function(btn) {
       btn.addEventListener('click', function() {
@@ -897,6 +1078,33 @@
       });
     })(filterBtns[i]);
   }
+
+  // 드롭다운 필터
+  document.getElementById('filter-name').addEventListener('change', function() {
+    filterName = this.value;
+    applyFilterAll();
+  });
+  document.getElementById('filter-color').addEventListener('change', function() {
+    filterColor = this.value;
+    applyFilterAll();
+  });
+
+  // 새 품목 추가
+  document.getElementById('btn-add-item').addEventListener('click', toggleAddItemForm);
+  document.getElementById('btn-new-confirm').addEventListener('click', confirmAddItem);
+  document.getElementById('btn-new-cancel').addEventListener('click', toggleAddItemForm);
+  document.getElementById('new-color').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      confirmAddItem();
+    }
+  });
+  document.getElementById('new-name').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      document.getElementById('new-color').focus();
+    }
+  });
 
   document.getElementById('btn-export').addEventListener('click', onExport);
   document.getElementById('btn-save').addEventListener('click', onSaveRestore);
@@ -935,7 +1143,22 @@
     if (e.target === this) closeModal();
   });
 
+  // 스냅샷 메타 표시
+  (function() {
+    var metaEl = document.getElementById('snapshot-meta');
+    if (!metaEl) return;
+    var s = SNAPSHOT_ID || '';
+    var formatted = s;
+    if (/^\d{8}_\d{6}$/.test(s)) {
+      formatted =
+        s.substr(0, 4) + '-' + s.substr(4, 2) + '-' + s.substr(6, 2) +
+        ' ' + s.substr(9, 2) + ':' + s.substr(11, 2);
+    }
+    metaEl.innerHTML = '스냅샷 ' + formatted + ' · <span>' + s + '</span>';
+  })();
+
   loadState();
+  populateDropdowns();
   renderAll();
   updateProgress();
 })();
